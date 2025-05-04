@@ -1,66 +1,81 @@
 import os
-import asyncio
-import re
 import logging
+import re
+import random
+from datetime import timedelta
+
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+
+# Настройка логирования
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
 
 TOKEN = os.environ["BOT_TOKEN"]
 
 # Возможные фразы для напоминания
-REMINDER_PHRASES = [
-    "Мне тут птичка напела, что тебе надо", "Роднулька, не люблю указывать, но тебе надо", "Фух, чуть не проспал! Тебе надо", "Твое испытание начинается. Пришло время", "Нейрончики я принес вам лимонад. Вам стоит", "Я надеюсь ты не забыл"
+REMINDER_MESSAGES = [
+    "Мне тут птичка напела, что тебе надо", 
+    "Роднулька, не люблю указывать, но тебе надо", 
+    "Фух, чуть не проспал! Тебе надо", 
+    "Твое испытание начинается. Пришло время", 
+    "Нейрончики я принес вам лимонад. Вам стоит", 
+    "Я надеюсь ты не забыл",
 ]
 
-def pluralize(value, forms):
-    if 11 <= value % 100 <= 14:
-        return forms[2]
-    last_digit = value % 10
-    if last_digit == 1:
-        return forms[0]
-    elif 2 <= last_digit <= 4:
-        return forms[1]
-    else:
-        return forms[2]
+# Варианты подтверждений установки
+CONFIRM_MESSAGES = [
+    "Забились, освежу твои нейрончики спустя {time_str}",
+]
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.message.text.lower()
-    match = re.match(r'(\d+)\s+(секунд[аы]?|минут[аы]?|час[аов]?)\s+(.+)', msg)
-    if not match:
-        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: '3 минуты сделать чай'")
-        return
-
-    amount = int(match.group(1))
-    unit_raw = match.group(2)
-    task = match.group(3)
-
-    if unit_raw.startswith('секунд'):
-        delay = amount
-        unit_forms = ('секунду', 'секунды', 'секунд')
-    elif unit_raw.startswith('минут'):
-        delay = amount * 60
-        unit_forms = ('минуту', 'минуты', 'минут')
-    elif unit_raw.startswith('час'):
-        delay = amount * 3600
-        unit_forms = ('час', 'часа', 'часов')
-    else:
-        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: '3 минуты сделать чай'")
-        return
-
-    unit_correct = pluralize(amount, unit_forms)
-    await update.message.reply_text(f"Забились, освежу твои нейрончики спустя {amount} {unit_correct}")
-    await asyncio.sleep(delay)
-
-    reminder = random.choice(REMINDER_PHRASES)
-    await update.message.reply_text(f"{reminder}\n{task.strip()}")
-
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-app.run_polling()
-from telegram.error import TelegramError
-import logging
-
-async def error_handler(update, context):
+# Обработчик ошибок
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Произошла ошибка: {context.error}")
 
-application.add_error_handler(error_handler)
+# Обработка входящих сообщений
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message_text = update.message.text
+
+    match = re.match(r"(\d+)\s*(минута|минуты|минут|секунда|секунды|секунд)?\s+(.*)", message_text.lower())
+    if not match:
+        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: 3 минуты сделать чай")
+        return
+
+    amount = int(match[1])
+    unit = match[2] or "секунд"
+    task = match[3]
+
+    if "минут" in unit:
+        delta = timedelta(minutes=amount)
+        word = get_plural(amount, "минута", "минуты", "минут")
+    else:
+        delta = timedelta(seconds=amount)
+        word = get_plural(amount, "секунда", "секунды", "секунд")
+
+    time_str = f"{amount} {word}"
+    confirm_text = random.choice(CONFIRM_MESSAGES).format(time_str=time_str)
+    await update.message.reply_text(confirm_text)
+
+    await asyncio.sleep(delta.total_seconds())
+
+    reminder_text = f"{random.choice(REMINDER_MESSAGES)}\n{task}"
+    await update.message.reply_text(reminder_text)
+
+# Функция склонения слов
+def get_plural(n, form1, form2, form5):
+    if 11 <= n % 100 <= 14:
+        return form5
+    if n % 10 == 1:
+        return form1
+    if 2 <= n % 10 <= 4:
+        return form2
+    return form5
+
+# Запуск приложения
+if __name__ == "__main__":
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(error_handler)
+    application.run_polling()
