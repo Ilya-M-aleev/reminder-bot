@@ -1,6 +1,7 @@
 import os
 import asyncio
 import re
+import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
@@ -26,7 +27,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.lower()
     match = re.match(r'(\d+)\s+(секунд[аы]?|минут[аы]?|час[аов]?)\s+(.+)', msg)
     if not match:
-        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: 3 минуты сделать чай")
+        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: '3 минуты сделать чай'")
         return
 
     amount = int(match.group(1))
@@ -56,3 +57,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 app.run_polling()
+from telegram.error import TelegramError
+import logging
+
+async def error_handler(update, context):
+    logging.error(f"Произошла ошибка: {context.error}")
+
+application.add_error_handler(error_handler)
