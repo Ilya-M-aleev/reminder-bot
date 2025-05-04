@@ -6,34 +6,52 @@ from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filte
 
 TOKEN = os.environ["BOT_TOKEN"]
 
+# Возможные фразы для напоминания
+REMINDER_PHRASES = [
+    "Мне тут птичка напела, что тебе надо", "Роднулька, не люблю указывать, но тебе надо", "Фух, чуть не проспал! Тебе надо", "Твое испытание начинается. Пришло время", "Нейрончики я принес вам лимонад. Вам стоит", "Я надеюсь ты не забыл"
+]
+
+def pluralize(value, forms):
+    if 11 <= value % 100 <= 14:
+        return forms[2]
+    last_digit = value % 10
+    if last_digit == 1:
+        return forms[0]
+    elif 2 <= last_digit <= 4:
+        return forms[1]
+    else:
+        return forms[2]
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.lower()
     match = re.match(r'(\d+)\s+(секунд[аы]?|минут[аы]?|час[аов]?)\s+(.+)', msg)
     if not match:
-        await update.message.reply_text("Пример: '3 минуты сделать чай'")
+        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: 3 минуты сделать чай")
         return
 
     amount = int(match.group(1))
-    unit = match.group(2)
+    unit_raw = match.group(2)
     task = match.group(3)
 
-    # Приводим к ключам словаря
-    if unit.startswith('секунд'):
+    if unit_raw.startswith('секунд'):
         delay = amount
-        unit = 'секунд'
-    elif unit.startswith('минут'):
+        unit_forms = ('секунду', 'секунды', 'секунд')
+    elif unit_raw.startswith('минут'):
         delay = amount * 60
-        unit = 'минут'
-    elif unit.startswith('час'):
+        unit_forms = ('минуту', 'минуты', 'минут')
+    elif unit_raw.startswith('час'):
         delay = amount * 3600
-        unit = 'часов'
+        unit_forms = ('час', 'часа', 'часов')
     else:
-        await update.message.reply_text("Я так не работаю. Пиши вот так: '3 минуты сделать чай'")
+        await update.message.reply_text("Извини роднулька, но мне не платят за понимание текста.\nПиши вот так: '3 минуты сделать чай'")
         return
 
-    await update.message.reply_text(f"Забились, освежу твои нейрончики спустя {amount} {unit}: {task}")
+    unit_correct = pluralize(amount, unit_forms)
+    await update.message.reply_text(f"Забились, освежу твои нейрончики спустя {amount} {unit_correct}")
     await asyncio.sleep(delay)
-    await update.message.reply_text(f"Мне тут птичка напела, что тебе надо: {task}")
+
+    reminder = random.choice(REMINDER_PHRASES)
+    await update.message.reply_text(f"{reminder}\n{task.strip()}")
 
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
