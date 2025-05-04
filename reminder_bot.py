@@ -2,10 +2,16 @@ import os
 import logging
 import re
 import random
+import asyncio                            # ← вот он!
 from datetime import timedelta
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 # Настройка логирования
 logging.basicConfig(
@@ -13,7 +19,9 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-TOKEN = os.environ["BOT_TOKEN"]
+# Правильно объявляем токен
+BOT_TOKEN = os.environ["BOT_TOKEN"]
+
 
 # Возможные фразы для напоминания
 REMINDER_MESSAGES = [
