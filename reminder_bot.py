@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import asyncio
 import os
 import logging
@@ -21,7 +22,7 @@ logging.basicConfig(
 )
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
-APP_URL = os.environ["APP_URL"]  # Например: https://your-bot.onrender.com
+APP_URL   = os.environ["APP_URL"]  # Например: https://your-bot.onrender.com
 
 # Инициализируем Flask
 flask_app = Flask(__name__)
@@ -46,36 +47,40 @@ CONFIRM_MESSAGES = [
     "Окей, жди сигнала через {time_str}",
 ]
 
-# Ошибки
+# Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Произошла ошибка: {context.error}")
 
-# Обработка сообщений
+# Обработка входящих сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_text = update.message.text
 
-    match = re.match(r"(\d+)\s*(час|часа|часов|минута|минуты|минут|секунда|секунды|секунд)?\s+(.*)", message_text.lower())
+    match = re.match(
+        r"(\d+)\s*(час|часа|часов|минута|минуты|минут|секунда|секунды|секунд)?\s+(.*)",
+        message_text.lower()
+    )
     if not match:
         await update.message.reply_text(
-            "Извини роднулька, но мне не платят за понимание текста.\nПиши вот так:\n3 минуты сделать чай"
+            "Извини роднулька, но мне не платят за понимание текста.\n"
+            "Пиши вот так:\n3 минуты сделать чай"
         )
         return
 
     amount = int(match[1])
-    unit = match[2] or "секунд"
-    task = match[3]
+    unit   = match[2] or "секунд"
+    task   = match[3]
 
     if "час" in unit:
         delta = timedelta(hours=amount)
-        word = get_plural(amount, "час", "часа", "часов")
+        word  = get_plural(amount, "час", "часа", "часов")
     elif "минут" in unit:
         delta = timedelta(minutes=amount)
-        word = get_plural(amount, "минута", "минуты", "минут")
+        word  = get_plural(amount, "минута", "минуты", "минут")
     else:
         delta = timedelta(seconds=amount)
-        word = get_plural(amount, "секунда", "секунды", "секунд")
+        word  = get_plural(amount, "секунда", "секунды", "секунд")
 
-    time_str = f"{amount} {word}"
+    time_str    = f"{amount} {word}"
     confirm_text = random.choice(CONFIRM_MESSAGES).format(time_str=time_str)
     await update.message.reply_text(confirm_text)
 
@@ -84,7 +89,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reminder_text = f"{random.choice(REMINDER_MESSAGES)}\n{task}"
     await update.message.reply_text(reminder_text)
 
-# Склонение
+# Функция склонения
 def get_plural(n, form1, form2, form5):
     if 11 <= n % 100 <= 14:
         return form5
@@ -99,25 +104,22 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_m
 application.add_error_handler(error_handler)
 
 # Flask route для Telegram Webhook
-@flask_app.post(f"/{BOT_TOKEN}")
-async def webhook():
+@flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
     update = Update.de_json(request.get_json(force=True), application.bot)
-    await application.process_update(update)
-    return "ok"
+    application.process_update(update)  # убираем await, делаем синхронный вызов
+    return "ok", 200
 
 # Точка входа
+@flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook():
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    application.process_update(update)
+    return "ok", 200
+
+# Запуск Flask-сервера на Render
 if __name__ == "__main__":
-    import asyncio
-
-    # Установка вебхука
-    async def setup():
-        webhook_url = f"{APP_URL}/{BOT_TOKEN}"
-        await application.bot.set_webhook(url=webhook_url)
-        logging.info(f"Webhook установлен на {webhook_url}")
-
-    asyncio.run(setup())
-
-    # Запуск Flask-сервера
     port = int(os.environ.get("PORT", 5000))
     flask_app.run(host="0.0.0.0", port=port)
 
