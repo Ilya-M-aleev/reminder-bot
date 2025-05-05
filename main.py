@@ -113,8 +113,8 @@ def webhook():
 # Точка входа
 if __name__ == "__main__":
     # Установка вебхука
-@flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def webhook():
+    @flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
+    def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
     application.process_update(update)
